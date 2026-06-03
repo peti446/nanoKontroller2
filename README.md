@@ -1,6 +1,7 @@
 # nanoKontroller2
 
 A Linux daemon that bridges the **Korg nanoKONTROL2** MIDI controller with **PipeWire/WirePlumber**, letting you map physical faders, knobs, and buttons directly to audio node actions (muting, volume control, and toggling PipeWire link connections).
+This is a rewrite in c++ of the original [nanoKontroller](https://github.com/tpneill/nanoKontroller) python script to have new features that I needed and to interact with wireplumberr directly instead of going through pulse.
 
 ## Features
 
