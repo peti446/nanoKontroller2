@@ -1,0 +1,14 @@
+[Unit]
+Description=nanoKONTROL2 MIDI to PipeWire bridge
+Documentation=https://github.com/peti446/nanoKontroller2
+After=pipewire.service wireplumber.service
+Wants=pipewire.service wireplumber.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/nanoKontroller2 --config %h/.config/nanokontroller2/config.json
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

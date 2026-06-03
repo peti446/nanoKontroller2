@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+echo "nanoKontroller2 installed."
+echo "Enable the user service with:"
+echo "  systemctl --user enable --now nanokontroller2"
+echo "Place your config at: ~/.config/nanokontroller2/config.json"

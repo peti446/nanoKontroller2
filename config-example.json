@@ -1,0 +1,16 @@
+{
+  "actions": {
+    "Mute1": {
+      "type": "mute",
+      "params": {
+        "target": "music-audio-sink"
+      }
+    },
+    "Fader2": {
+      "type": "volume",
+      "params": {
+        "target": "music-audio-sink"
+      }
+    }
+  }
+}
