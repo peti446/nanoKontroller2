@@ -1,0 +1,67 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # CMakeLists.txt requires CMake 4.2 which isn't shipped with ubuntu-24.04
+      - name: Install CMake 4.x
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~4.2.0"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libwireplumber-0.5-dev \
+            libglib2.0-dev \
+            libasound2-dev \
+            librtmidi-dev \
+            libcxxopts-dev \
+            libglaze-dev \
+            libconcurrentqueue-dev \
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel $(nproc)
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nanoKontroller2-linux-x86_64
+          path: build/nanoKontroller2
+          if-no-files-found: error
+
+      # --- Release steps (only on version tags) ---
+
+      - name: Package (.deb)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: cmake --build build --target package
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Release ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
+          files: build/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
