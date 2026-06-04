@@ -34,7 +34,7 @@ void AudioService::Init(WpCore* core) {
     // Track pipewrie nodes
     ObjectManager = std::unique_ptr<WpObjectManager, WpObjMgrDeleter> { wp_object_manager_new() };
     wp_object_manager_add_interest(ObjectManager.get(), WP_TYPE_NODE, nullptr);
-    wp_object_manager_request_object_features(ObjectManager.get(), WP_TYPE_NODE, WP_PIPEWIRE_OBJECT_FEATURES_ALL);
+    wp_object_manager_request_object_features(ObjectManager.get(), WP_TYPE_NODE, WP_PIPEWIRE_OBJECT_FEATURES_ALL | static_cast<WpObjectFeatures>(WP_NODE_FEATURE_PORTS));
     g_signal_connect(ObjectManager.get(), "object-added",   G_CALLBACK(AudioService::on_node_added),   this);
     g_signal_connect(ObjectManager.get(), "object-removed", G_CALLBACK(AudioService::on_node_removed), this);
     g_signal_connect(ObjectManager.get(), "installed",      G_CALLBACK(AudioService::on_nodes_installed), this);
