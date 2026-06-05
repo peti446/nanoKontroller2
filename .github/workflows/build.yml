@@ -26,13 +26,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             pkg-config \
-            libwireplumber-0.5-dev \
             libglib2.0-dev \
             libasound2-dev \
             librtmidi-dev \
             libcxxopts-dev \
-            libglaze-dev \
             libconcurrentqueue-dev \
+
+      - name: Add PipeWire/WirePlumber Upstream PPAs and Install
+        run: |
+          sudo add-apt-repository -y ppa:pipewire-debian/pipewire-upstream
+          sudo add-apt-repository -y ppa:pipewire-debian/wireplumber-upstream
+          sudo apt-get update
+          sudo apt-get install -y libwireplumber-0.5-dev
+            
+      - name: Install Glaze
+        run: |
+          git clone --depth 1 https://github.com/stephenberry/glaze.git
+          cd glaze
+          cmake -B build
+          sudo cmake --build build --target install
 
       - name: Configure
         run: |
