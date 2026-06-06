@@ -69,14 +69,14 @@ jobs:
           cmake -S /tmp/glaze -B /tmp/glaze/build \
             -DCMAKE_BUILD_TYPE=Release \
             -DGLAZE_ENABLE_TESTS=OFF
-          cmake --install /tmp/glaze/build
+          sudo cmake --install /tmp/glaze/build
 
       - name: Install concurrentqueue
         run: |
           git clone --depth=1 https://github.com/cameron314/concurrentqueue.git /tmp/concurrentqueue
           cmake -S /tmp/concurrentqueue -B /tmp/concurrentqueue/build \
             -DCMAKE_BUILD_TYPE=Release
-          cmake --install /tmp/concurrentqueue/build
+          sudo cmake --install /tmp/concurrentqueue/build
         
 
       - name: Install magic_enum
@@ -84,7 +84,7 @@ jobs:
           git clone --depth=1 https://github.com/Neargye/magic_enum /tmp/magic_enum
           cmake -S /tmp/magic_enum -B /tmp/magic_enum/build \
             -DCMAKE_BUILD_TYPE=Release
-          cmake --install /tmp/magic_enum/build
+          sudo cmake --install /tmp/magic_enum/build
 
       - name: Configure
         run: |
