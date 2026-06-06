@@ -55,6 +55,17 @@ void AudioService::Init(WpCore* core) {
     }
 }
 
+void AudioService::Reset() {
+    MixerApi.reset();
+    LinksObjectManager.reset();
+    ObjectManager.reset();
+    Nodes.clear();
+    ActiveLinks.clear();
+    m_bNodesInstalled = false;
+    m_bLinksInstalled = false;
+    CoreRef = nullptr;
+}
+
 bool AudioService::DoesNodeExist(const std::string &nodeName) const {
     return Nodes.contains(nodeName);
 }
@@ -453,7 +464,6 @@ void AudioService::on_module_loaded(WpCore *core, GAsyncResult *res, gpointer us
     const auto Service = static_cast<AudioService*>(user_data);
     g_autoptr(GError) error = nullptr;
 
-    // Check if the load operation was successful
     if (!wp_core_load_component_finish(core, res, &error)) {
         g_printerr("Failed to load component: %s\n", error->message);
         return;
@@ -461,9 +471,7 @@ void AudioService::on_module_loaded(WpCore *core, GAsyncResult *res, gpointer us
 
     LOG_DEBUG("Successfully loaded: %s\n", "mixer-api");
 
-    // NOW wp_plugin_find will work!
     if (WpPlugin* plugin = wp_plugin_find(core, "mixer-api")) {
-        // You can now safely emit signals like "set-volume"
         LOG_DEBUG("Successfully found %s pointer!\n", "mixer-api");
         Service->MixerApi = std::unique_ptr<WpPlugin, WpPluginDeleter>{plugin};
     }
@@ -495,7 +503,7 @@ void AudioService::on_nodes_installed(WpObjectManager *, gpointer UserData) {
     }
 }
 
-void AudioService::on_all_install_completed() {
+void AudioService::on_all_install_completed() const {
     if (!IsSystemReady()) return;
 
     LOG_DEBUG("All nodes and links installed. System is ready.\n");

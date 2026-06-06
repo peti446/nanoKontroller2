@@ -27,19 +27,7 @@ void Action_Connection::Refresh_LED_State() {
 }
 
 void Action_Connection::on_node_available(WpNode* /*node*/, const std::string& name) {
-    bool bCanDoLinks = false;
-    if (name == m_Left) {
-        bCanDoLinks = m_audioService->DoesNodeExist(m_Right);
-    } else if (name == m_Right) {
-        bCanDoLinks = m_audioService->DoesNodeExist(m_Left);
-    }
-
-    if (bCanDoLinks) {
-        if (m_audioService->GetConnectionState(m_Left, m_Right) != m_bDefaultState) {
-            m_audioService->SetConnectionState(m_Left, m_Right, m_bDefaultState);
-            Refresh_LED_State();
-        }
-    }
+    on_audio_system_ready();
 }
 
 void Action_Connection::on_link_created(WpLink *link, const std::string &leftNodeName,

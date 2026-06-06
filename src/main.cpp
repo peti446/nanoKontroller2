@@ -47,6 +47,27 @@ static gboolean on_signal(gpointer UserData) {
     return G_SOURCE_REMOVE; // remove the source after firing
 }
 
+static void on_core_disconnected(WpCore* core, gpointer UserData) {
+    auto& State = *static_cast<AppState*>(UserData);
+    g_message("WirePlumber disconnected — attempting to reconnect...");
+
+    State.m_AudioService.Reset();
+
+    auto* retry = g_new(AppState*, 1);
+    *retry = &State;
+    g_timeout_add(500, [](gpointer data) -> gboolean {
+        auto& S = **static_cast<AppState**>(data);
+        if (wp_core_connect(S.Core.get())) {
+            g_message("Reconnected to PipeWire/WirePlumber — re-initialising AudioService.");
+            S.m_AudioService.Init(S.Core.get());
+            g_free(data);
+            return G_SOURCE_REMOVE; // stop retrying
+        }
+        g_message("Reconnect failed, retrying in 500 ms...");
+        return G_SOURCE_CONTINUE;
+    }, retry);
+}
+
 static void ConsumeQueue(AppState& State) {
     static std::vector<MidiEvent> Event;
     Event.resize(MaxQueueSize);
@@ -98,6 +119,9 @@ int main(const int argc, char** argv) {
         std::cerr << "Failed to connect to PipeWire. Is the PipeWire daemon running?\n";
         return 1;
     }
+
+    // Detect WirePlumber restarts: "disconnected" fires when the daemon goes away
+    g_signal_connect(State.Core.get(), "disconnected", G_CALLBACK(on_core_disconnected), &State);
 
     // Before we hook to any events we set up all actions, midi controller and led controller
     if (!State.m_MidiManager.open("NanoKONTROL2")) {

@@ -14,6 +14,7 @@ class IActionBase;
 class AudioService {
 public:
     void Init(WpCore* core);
+    void Reset();
 
     bool IsSystemReady() const { return m_bLinksInstalled && m_bNodesInstalled; }
     bool DoesNodeExist(const std::string& nodeName) const;
@@ -40,7 +41,7 @@ private:
     static void on_module_loaded(WpCore *core, GAsyncResult *res, gpointer user_data);
     static void on_links_installed(WpObjectManager*, gpointer UserData);
     static void on_nodes_installed(WpObjectManager*, gpointer UserData);
-    void on_all_install_completed();
+    void on_all_install_completed() const;
 
     bool m_bNodesInstalled{false};
     bool m_bLinksInstalled{false};
