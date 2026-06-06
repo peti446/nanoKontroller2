@@ -14,15 +14,6 @@
 #include "Actions/IAction.h"
 #include "DebugLog.h"
 
-
-namespace {
-    struct TempDataHolder {
-        WpCore* Core;
-        AudioService* Service;
-        gulong SignalHandle;
-    };
-}
-
 void AudioService::Init(WpCore* core) {
     CoreRef = core;
 
