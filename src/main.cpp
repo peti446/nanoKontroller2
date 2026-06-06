@@ -1,3 +1,4 @@
+#include <ranges>
 #include <wireplumber-0.5/wp/wp.h>
 #include <glib.h>
 #include <glib-unix.h>

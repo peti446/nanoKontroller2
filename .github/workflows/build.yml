@@ -9,17 +9,19 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
+    env:
+      CC: gcc-14
+      CXX: g++-14
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # CMakeLists.txt requires CMake 4.2 which isn't shipped with ubuntu-24.04
-      - name: Install CMake 4.x
+      - name: Install CMake 4.2
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: "~4.2.0"
+          cmakeVersion: "~4.2.2"
 
       - name: Install system dependencies
         run: |
@@ -30,21 +32,59 @@ jobs:
             libasound2-dev \
             librtmidi-dev \
             libcxxopts-dev \
-            libconcurrentqueue-dev \
+            meson \
+            ninja-build \
+            libglib2.0-dev \
+            libspa-0.2-dev \
+            libpipewire-0.3-dev \
+            liblua5.4-dev \
+            libsystemd-dev \
+            gcc-14 g++-14
 
-      - name: Add PipeWire/WirePlumber Upstream PPAs and Install
+      - name: Build and Install WirePlumber
+        # Disables doc generation to speed up the CI pipeline.
+        # Uses system lua rather than allowing meson to download its own.
         run: |
-          sudo add-apt-repository -y ppa:pipewire-debian/pipewire-upstream
-          sudo add-apt-repository -y ppa:pipewire-debian/wireplumber-upstream
-          sudo apt-get update
-          sudo apt-get install -y libwireplumber-0.5-dev
-            
-      - name: Install Glaze
+          git clone https://gitlab.freedesktop.org/pipewire/wireplumber.git
+          cd wireplumber
+          git checkout 0.5.14
+          meson setup build \
+            --prefix=/usr \
+            --buildtype=release \
+            -Dsystem-lua=true \
+            -Dintrospection=disabled \
+            -Ddoc=disabled
+          
+          meson compile -C build
+          sudo meson install -C build
+
+      - name: Verify Installation
+        # Confirms pkg-config can locate the newly installed 0.5 package.
         run: |
-          git clone --depth 1 https://github.com/stephenberry/glaze.git
-          cd glaze
-          cmake -B build
-          sudo cmake --build build --target install
+          pkg-config --modversion wireplumber-0.5
+
+      - name: Install glaze
+        run: |
+          git clone --depth=1 https://github.com/stephenberry/glaze.git /tmp/glaze
+          cmake -S /tmp/glaze -B /tmp/glaze/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DGLAZE_ENABLE_TESTS=OFF
+          cmake --install /tmp/glaze/build
+
+      - name: Install concurrentqueue
+        run: |
+          git clone --depth=1 https://github.com/cameron314/concurrentqueue.git /tmp/concurrentqueue
+          cmake -S /tmp/concurrentqueue -B /tmp/concurrentqueue/build \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --install /tmp/concurrentqueue/build
+        
+
+      - name: Install magic_enum
+        run: |
+          git clone --depth=1 https://github.com/Neargye/magic_enum /tmp/magic_enum
+          cmake -S /tmp/magic_enum -B /tmp/magic_enum/build \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --install /tmp/magic_enum/build
 
       - name: Configure
         run: |

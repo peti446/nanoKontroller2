@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 4.2)
 project(nanoKontroller2 VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 26)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(PkgConfig REQUIRED)
 find_package(glaze REQUIRED)
