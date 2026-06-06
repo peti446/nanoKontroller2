@@ -27,42 +27,36 @@ void Action_Connection::Refresh_LED_State() {
 }
 
 void Action_Connection::on_node_available(WpNode* /*node*/, const std::string& name) {
-    on_audio_system_ready();
+    if (m_audioService->DoesNodeExist(m_Right) && m_audioService->DoesNodeExist(m_Left)) {
+        m_bIsConnected = m_audioService->GetConnectionState(m_Left, m_Right);
+        if (m_bIsConnected != m_bDefaultState) {
+            m_audioService->SetConnectionState(m_Left, m_Right, m_bDefaultState);
+            // Note: We cannot set the state here as we do not know if the links are created or not so we would go into the wrong state
+        }
+    }
+    Refresh_LED_State();
 }
 
 void Action_Connection::on_link_created(WpLink *link, const std::string &leftNodeName,
     const std::string &rightNodeName) {
-    // Seed the connection state (and LED) from PipeWire reality once both nodes are present.
-    // GetConnectionState returns false if either node is still absent, which is the correct
-    // default — we will be called again when the second node appears.
-    const bool bConnected = m_audioService->GetConnectionState(m_Left, m_Right);
-    if (bConnected != m_bIsConnected) {
-        m_bIsConnected = bConnected;
+    if (leftNodeName == m_Left && rightNodeName == m_Right) {
+        m_bIsConnected = m_audioService->GetConnectionState(m_Left, m_Right);
         Refresh_LED_State();
     }
 }
 
 void Action_Connection::on_link_removed(WpLink *link, const std::string &leftNodeName,
     const std::string &rightNodeName) {
-    // Seed the connection state (and LED) from PipeWire reality once both nodes are present.
-    // GetConnectionState returns false if either node is still absent, which is the correct
-    // default — we will be called again when the second node appears.
-    const bool bConnected = m_audioService->GetConnectionState(m_Left, m_Right);
-    if (bConnected != m_bIsConnected) {
-        m_bIsConnected = bConnected;
+    if (leftNodeName == m_Left && rightNodeName == m_Right) {
+        m_bIsConnected = m_audioService->GetConnectionState(m_Left, m_Right);
         Refresh_LED_State();
     }
 }
 
-void Action_Connection::on_audio_system_ready() {
-    m_bIsConnected = m_audioService->GetConnectionState(m_Left, m_Right);
-    if (m_audioService->DoesNodeExist(m_Right) && m_audioService->DoesNodeExist(m_Left)) {
-        if (m_bIsConnected != m_bDefaultState) {
-            m_audioService->SetConnectionState(m_Left, m_Right, m_bDefaultState);
-            m_bIsConnected = m_bDefaultState;
-        }
-    }
-    Refresh_LED_State();
+void Action_Connection::on_node_ports_changed(WpNode *node, const std::string &name, gulong portsNum) {
+    if (portsNum == 0) return;
+    // Simply do the same as if the node is available to pefrom connection
+    on_node_available(node, name);
 }
 
 void Action_Connection::Init_Internal(const std::unordered_map<std::string, std::string> &params) {
@@ -81,7 +75,7 @@ void Action_Connection::Init_Internal(const std::unordered_map<std::string, std:
         if (const auto It = params.find("default-state"); It != params.end()) {
             m_audioService->RegisterNodeListener(m_Left, this);
             m_audioService->RegisterNodeListener(m_Right, this);
-            m_audioService->RegisterSystemActivationListener(this);
+            m_audioService->RegisterLinkListener(m_Left, m_Right, this);
             m_bDefaultState = It->second == "connected";
         } else {
             std::cerr << "Warning: Connection action between \"" << m_Left << "\" and \"" << m_Right

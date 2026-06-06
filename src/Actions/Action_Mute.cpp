@@ -1,6 +1,5 @@
 #include "Actions/Action_Mute.h"
 
-#include <bits/this_thread_sleep.h>
 #include <iostream>
 
 #include "AudioService.h"
@@ -12,7 +11,6 @@ void Action_Mute::Init_Internal(const std::unordered_map<std::string, std::strin
         return;
     }
     m_audioService->RegisterNodeListener(m_Node, this);
-    m_audioService->RegisterSystemActivationListener(this);
 }
 
 void Action_Mute::on_midi(int value) {
@@ -51,12 +49,5 @@ void Action_Mute::on_node_params_changed(WpPipewireObject * node, const std::str
         if (bOldValue != m_bIsMuted && LedManager::IsLedCapable(m_Control)) {
             m_ledManager->Set(static_cast<NanoKontrol2::LED>(m_Control), m_bIsMuted);
         }
-    }
-}
-
-void Action_Mute::on_audio_system_ready() {
-    m_bIsMuted = m_audioService->GetMute(m_Node);
-    if (LedManager::IsLedCapable(m_Control)) {
-        m_ledManager->Set(static_cast<NanoKontrol2::LED>(m_Control), m_bIsMuted);
     }
 }

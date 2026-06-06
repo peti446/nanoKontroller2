@@ -40,8 +40,7 @@ public:
 
     virtual void on_link_created(WpLink* link, const std::string& leftNodeName, const std::string& rightNodeName) {}
     virtual void on_link_removed(WpLink* link, const std::string& leftNodeName, const std::string& rightNodeName) {}
-    virtual void on_audio_system_ready() {}
-
+    virtual void on_node_ports_changed(WpNode* node, const std::string& name, gulong portsNum) {}
 protected:
     virtual void Init_Internal(const std::unordered_map<std::string, std::string> &params) = 0;
 

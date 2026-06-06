@@ -4,7 +4,6 @@
 IActionBase::~IActionBase() {
     m_audioService->UnregisterNodeListener(this);
     m_audioService->UnregisterLinkListener(this);
-    m_audioService->UnregisterSystemActivationListener(this);
 }
 
 void IActionBase::Init(const std::unordered_map<std::string, std::string> &params, LedManager &LedManager,

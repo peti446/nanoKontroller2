@@ -11,8 +11,7 @@ public:
     void on_node_available(WpNode* node, const std::string& name) override;
     void on_link_created(WpLink *link, const std::string &leftNodeName, const std::string &rightNodeName) override;
     void on_link_removed(WpLink *link, const std::string &leftNodeName, const std::string &rightNodeName) override;
-    void on_audio_system_ready() override;
-
+    void on_node_ports_changed(WpNode *node, const std::string &name, gulong portsNum) override;
 protected:
     void Init_Internal(const std::unordered_map<std::string, std::string> &params) override;
 

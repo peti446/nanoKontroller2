@@ -15,30 +15,36 @@
 #include "DebugLog.h"
 
 
-void AudioService::Init(WpCore* core) {
-    if (ObjectManager) {
-        return;
-    }
+namespace {
+    struct TempDataHolder {
+        WpCore* Core;
+        AudioService* Service;
+        gulong SignalHandle;
+    };
+}
 
+void AudioService::Init(WpCore* core) {
     CoreRef = core;
 
     // Track all PipeWire links so GetConnectionState can query them on demand
-    LinksObjectManager = std::unique_ptr<WpObjectManager, WpObjMgrDeleter> { wp_object_manager_new() };
-    wp_object_manager_add_interest(LinksObjectManager.get(), WP_TYPE_LINK, nullptr);
-    wp_object_manager_request_object_features(LinksObjectManager.get(), WP_TYPE_LINK, WP_PIPEWIRE_OBJECT_FEATURE_INFO);
-    g_signal_connect(LinksObjectManager.get(), "object-added",   G_CALLBACK(AudioService::on_link_added),   this);
-    g_signal_connect(LinksObjectManager.get(), "object-removed", G_CALLBACK(AudioService::on_link_removed), this);
-    g_signal_connect(LinksObjectManager.get(), "installed",      G_CALLBACK(AudioService::on_links_installed), this);
-    wp_core_install_object_manager(core, LinksObjectManager.get());
+    if (!ObjectManager) {
+        LinksObjectManager = std::unique_ptr<WpObjectManager, WpObjMgrDeleter> { wp_object_manager_new() };
+        wp_object_manager_add_interest(LinksObjectManager.get(), WP_TYPE_LINK, nullptr);
+        wp_object_manager_request_object_features(LinksObjectManager.get(), WP_TYPE_LINK, WP_PIPEWIRE_OBJECT_FEATURE_INFO);
+        g_signal_connect(LinksObjectManager.get(), "object-added",   G_CALLBACK(AudioService::on_link_added),   this);
+        g_signal_connect(LinksObjectManager.get(), "object-removed", G_CALLBACK(AudioService::on_link_removed), this);
+        wp_core_install_object_manager(core, LinksObjectManager.get());
+    }
 
     // Track pipewrie nodes
-    ObjectManager = std::unique_ptr<WpObjectManager, WpObjMgrDeleter> { wp_object_manager_new() };
-    wp_object_manager_add_interest(ObjectManager.get(), WP_TYPE_NODE, nullptr);
-    wp_object_manager_request_object_features(ObjectManager.get(), WP_TYPE_NODE, WP_PIPEWIRE_OBJECT_FEATURES_ALL | static_cast<WpObjectFeatures>(WP_NODE_FEATURE_PORTS));
-    g_signal_connect(ObjectManager.get(), "object-added",   G_CALLBACK(AudioService::on_node_added),   this);
-    g_signal_connect(ObjectManager.get(), "object-removed", G_CALLBACK(AudioService::on_node_removed), this);
-    g_signal_connect(ObjectManager.get(), "installed",      G_CALLBACK(AudioService::on_nodes_installed), this);
-    wp_core_install_object_manager(core, ObjectManager.get());
+    if (!ObjectManager) {
+        ObjectManager = std::unique_ptr<WpObjectManager, WpObjMgrDeleter> { wp_object_manager_new() };
+        wp_object_manager_add_interest(ObjectManager.get(), WP_TYPE_NODE, nullptr);
+        wp_object_manager_request_object_features(ObjectManager.get(), WP_TYPE_NODE, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL | static_cast<WpObjectFeatures>(WP_NODE_FEATURE_PORTS));
+        g_signal_connect(ObjectManager.get(), "object-added",   G_CALLBACK(AudioService::on_node_added),   this);
+        g_signal_connect(ObjectManager.get(), "object-removed", G_CALLBACK(AudioService::on_node_removed), this);
+        wp_core_install_object_manager(core, ObjectManager.get());
+    }
 
     MixerApi = std::unique_ptr<WpPlugin, WpPluginDeleter>{wp_plugin_find(core, "mixer-api")};
     if (MixerApi == nullptr) {
@@ -61,8 +67,6 @@ void AudioService::Reset() {
     ObjectManager.reset();
     Nodes.clear();
     ActiveLinks.clear();
-    m_bNodesInstalled = false;
-    m_bLinksInstalled = false;
     CoreRef = nullptr;
 }
 
@@ -259,18 +263,6 @@ void AudioService::RegisterLinkListener(const std::string &leftNode, const std::
     ConnectionListeners[LinkName].push_back(listener);
 }
 
-void AudioService::RegisterSystemActivationListener(IActionBase *listener) {
-    if (IsSystemReady()) {
-        listener->on_audio_system_ready();
-        return;
-    }
-
-    // Only register if we are not ready
-    if (std::ranges::find(SystemActivationListeners, listener) == SystemActivationListeners.end()) {
-        SystemActivationListeners.push_back(listener);
-    }
-}
-
 void AudioService::UnregisterLinkListener(const IActionBase* listener) {
     for (auto &val: ConnectionListeners | std::views::values) {
         for (auto Itr = val.rbegin(); Itr != val.rbegin(); ++Itr) {
@@ -279,10 +271,6 @@ void AudioService::UnregisterLinkListener(const IActionBase* listener) {
             }
         }
     }
-}
-
-void AudioService::UnregisterSystemActivationListener(const IActionBase *listener) {
-    std::erase(SystemActivationListeners, listener);
 }
 
 void AudioService::on_link_added(WpObjectManager*, WpObject *Object, gpointer UserData) {
@@ -299,12 +287,6 @@ void AudioService::on_link_added(WpObjectManager*, WpObject *Object, gpointer Us
     // Double-insert guard — object manager can fire object-added more than once in edge cases
     if (!Service->ActiveLinks.contains(BoundId)) {
         Service->ActiveLinks.emplace(BoundId, std::unique_ptr<WpLink, WpLinkDeleter>(WP_LINK(g_object_ref(Link))));
-    }
-
-    // If the system is not ready we don't send any events down
-    if (!Service->IsSystemReady())
-    {
-        return;
     }
 
     guint32 OutNodeId = 0, OutPortID = 0, InNodeID = 0, InNodePort = 0;
@@ -344,11 +326,6 @@ void AudioService::on_link_removed(WpObjectManager*, WpObject *Object, gpointer 
     // Erase from ActiveLinks first — unique_ptr destructor calls g_object_unref automatically
     Service->ActiveLinks.erase(BoundId);
 
-    // If the system is not ready we don't send any events down
-    if (!Service->IsSystemReady())
-    {
-        return;
-    }
 
     guint32 OutNodeId = 0, OutPortID = 0, InNodeID = 0, InNodePort = 0;
     wp_link_get_linked_object_ids(Link, &OutNodeId, &OutPortID, &InNodeID, &InNodePort);
@@ -390,12 +367,7 @@ void AudioService::on_node_added(WpObjectManager*, WpObject* Object, gpointer Us
     if (const auto Itr = Service->Nodes.find(Name); Itr == Service->Nodes.end()) {
         Service->Nodes[Name] = std::unique_ptr<WpNode, WpNodeDeleter>(WP_NODE(g_object_ref(Node)));
         g_signal_connect(Object, "params-changed", G_CALLBACK(AudioService::on_node_params_changed), Service);
-    }
-
-    // If the system is not ready we don't send any events down
-    if (!Service->IsSystemReady())
-    {
-        return;
+        g_signal_connect(Object, "ports-changed", G_CALLBACK(AudioService::on_node_ports_changed), Service);
     }
 
     if (const auto Itr = Service->NodeListeners.find(Name); Itr != Service->NodeListeners.end()) {
@@ -419,11 +391,6 @@ void AudioService::on_node_removed(WpObjectManager *, WpObject *Object, gpointer
 
     Service->Nodes.erase(Name); // We remove the cache
 
-    // If the system is not ready we don't send any events down
-    if (!Service->IsSystemReady())
-    {
-        return;
-    }
 
     const auto Itr = Service->NodeListeners.find(Name);
     if (Itr != Service->NodeListeners.end()) {
@@ -439,12 +406,6 @@ void AudioService::on_node_params_changed(WpPipewireObject* Node, const gchar* P
 
     const auto Service = static_cast<AudioService*>(UserData);
 
-    // If the system is not ready we don't send any events down
-    if (!Service->IsSystemReady())
-    {
-        return;
-    }
-
     const char* Name = wp_pipewire_object_get_property(WP_PIPEWIRE_OBJECT(Node), "node.name");
 
     // Node params changed — actions listening to this node can be notified here
@@ -452,6 +413,26 @@ void AudioService::on_node_params_changed(WpPipewireObject* Node, const gchar* P
     if (Itr != Service->NodeListeners.end()) {
         for (IActionBase* Listener : Itr->second) {
             Listener->on_node_params_changed(Node, Name);
+        }
+    }
+}
+
+void AudioService::on_node_ports_changed(WpNode* Node, gpointer UserData) {
+    if (!UserData || !Node) return;
+
+    auto* const Service = static_cast<AudioService*>(UserData);
+
+    const char* Name = wp_pipewire_object_get_property(WP_PIPEWIRE_OBJECT(Node), "node.name");
+    const guint NumPorts = wp_node_get_n_ports(Node);
+    // Check for any connection state manually done and if any of the ndoes are changed connect them
+    LOG_DEBUG("Node ports changed: %s (%d ports)\n", Name, NumPorts);
+    if (NumPorts == 0) return;
+
+    // Connect nodes that are pending connection
+    const auto Itr = Service->NodeListeners.find(Name);
+    if (Itr != Service->NodeListeners.end()) {
+        for (IActionBase* Listener : Itr->second) {
+            Listener->on_node_ports_changed(Node, Name, NumPorts);
         }
     }
 }
@@ -475,41 +456,4 @@ void AudioService::on_module_loaded(WpCore *core, GAsyncResult *res, gpointer us
         LOG_DEBUG("Successfully found %s pointer!\n", "mixer-api");
         Service->MixerApi = std::unique_ptr<WpPlugin, WpPluginDeleter>{plugin};
     }
-}
-
-void AudioService::on_links_installed(WpObjectManager *, gpointer UserData) {
-    if (!UserData) {
-        return;
-    }
-
-    auto* Service = static_cast<AudioService*>(UserData);
-    Service->m_bLinksInstalled = true;
-
-    if (Service->m_bNodesInstalled) {
-        Service->on_all_install_completed();
-    }
-}
-
-void AudioService::on_nodes_installed(WpObjectManager *, gpointer UserData) {
-    if (!UserData) {
-        return;
-    }
-
-    auto* Service = static_cast<AudioService*>(UserData);
-    Service->m_bNodesInstalled = true;
-
-    if (Service->m_bLinksInstalled) {
-        Service->on_all_install_completed();
-    }
-}
-
-void AudioService::on_all_install_completed() const {
-    if (!IsSystemReady()) return;
-
-    LOG_DEBUG("All nodes and links installed. System is ready.\n");
-
-    for (IActionBase* Listener : SystemActivationListeners) {
-        Listener->on_audio_system_ready();
-    }
-
 }
