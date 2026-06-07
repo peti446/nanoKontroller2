@@ -30,7 +30,6 @@ jobs:
             pkg-config \
             libglib2.0-dev \
             libasound2-dev \
-            librtmidi-dev \
             libcxxopts-dev \
             meson \
             ninja-build \
@@ -77,7 +76,14 @@ jobs:
           cmake -S /tmp/concurrentqueue -B /tmp/concurrentqueue/build \
             -DCMAKE_BUILD_TYPE=Release
           sudo cmake --install /tmp/concurrentqueue/build
-        
+
+      - name: Build and Install RtMidi 7
+        run: |
+          git clone https://github.com/thestk/rtmidi.git
+          cd rtmidi
+          git checkout 6.0.0
+          cmake -B ./build -DCMAKE_BUILD_TYPE=Release
+          sudo cmake --install ./build        
 
       - name: Install magic_enum
         run: |
