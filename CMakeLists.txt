@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 4.2)
-project(nanoKontroller2 VERSION 1.0.0)
+
+if(NOT DEFINED PROJECT_VERSION_STRING)
+    set(PROJECT_VERSION_STRING "1.0.0")
+endif()
+
+project(nanoKontroller2 VERSION ${PROJECT_VERSION_STRING})
 
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

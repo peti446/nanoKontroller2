@@ -95,9 +95,18 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           sudo cmake --install /tmp/magic_enum/build
 
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=0.0.0-dev" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPROJECT_VERSION_STRING="${{ steps.version.outputs.value }}"
 
       - name: Build
         run: cmake --build build --parallel $(nproc)
