@@ -82,8 +82,11 @@ jobs:
           git clone https://github.com/thestk/rtmidi.git
           cd rtmidi
           git checkout 6.0.0
-          cmake -B ./build -DCMAKE_BUILD_TYPE=Release
-          sudo cmake --install ./build        
+          cmake -B ./build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=ON
+          cmake --build ./build --parallel $(nproc)
+          sudo cmake --install ./build     
 
       - name: Install magic_enum
         run: |
